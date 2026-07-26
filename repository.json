@@ -1,0 +1,17 @@
+{
+  "author": "drbbton",
+  "gitHubUrl": "https://github.com/drbbton/HubitatInternetWatchdog",
+  "packages": [
+    {
+      "id": "24227b5d-a44e-44f3-a3b7-648c907167dc",
+      "name": "Hubitat Internet Watchdog",
+      "category": "Utility",
+      "location": "https://raw.githubusercontent.com/drbbton/HubitatInternetWatchdog/main/packageManifest.json",
+      "description": "Test internet connectivity on a schedule (captive.apple.com plus a secondary endpoint), keep a forensic event log, and power-cycle the modem via a smart plug with fail threshold, boot grace, and exponential backoff.",
+      "tags": [
+        "Utility",
+        "Tools & Utilities"
+      ]
+    }
+  ]
+}

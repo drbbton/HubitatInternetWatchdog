@@ -1,0 +1,20 @@
+{
+  "packageName": "Hubitat Internet Watchdog",
+  "author": "drbbton",
+  "version": "1.0.0",
+  "minimumHEVersion": "2.2.8",
+  "dateReleased": "2026-7-26",
+  "apps": [
+    {
+      "id": "24227b5d-a44e-44f3-a3b7-648c907167dc",
+      "name": "Internet Watchdog",
+      "namespace": "drbbton",
+      "location": "https://raw.githubusercontent.com/drbbton/HubitatInternetWatchdog/main/internetwatchdog.groovy",
+      "required": true,
+      "oauth": false,
+      "primary": true,
+      "version": "1.0.0"
+    }
+  ],
+  "releaseNotes": "1.0.0: Initial release. Dual-endpoint connectivity checks (captive.apple.com + generate_204, both must fail), timestamped forensic event log, modem power cycle via smart plug with fail threshold, boot grace period, and exponential backoff."
+}
