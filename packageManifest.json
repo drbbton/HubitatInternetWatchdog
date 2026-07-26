@@ -1,7 +1,7 @@
 {
   "packageName": "Hubitat Internet Watchdog",
   "author": "drbbton",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minimumHEVersion": "2.2.8",
   "dateReleased": "2026-7-26",
   "apps": [
@@ -13,8 +13,8 @@
       "required": true,
       "oauth": false,
       "primary": true,
-      "version": "1.0.0"
+      "version": "1.1.0"
     }
   ],
-  "releaseNotes": "1.0.0: Initial release. Dual-endpoint connectivity checks (captive.apple.com + generate_204, both must fail), timestamped forensic event log, modem power cycle via smart plug with fail threshold, boot grace period, and exponential backoff."
+  "releaseNotes": "1.1.0: Monitor-only mode - with no restart switch configured, every check result (OK and failed) is written to the forensic event log, and the log buffer grows to 500 entries. 1.0.0: Initial release. Dual-endpoint connectivity checks (captive.apple.com + generate_204, both must fail), timestamped forensic event log, modem power cycle via smart plug with fail threshold, boot grace period, and exponential backoff."
 }

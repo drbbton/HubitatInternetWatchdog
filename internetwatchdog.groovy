@@ -149,7 +149,9 @@ private void markUp() {
         notifyAll("Internet recovered after ${dur}.")
         setPresence(true)
     } else {
-        if (logEnable) log.debug "Internet OK."
+        // monitor-only mode (no restart switch): log every check result for forensics
+        if (!restartSwitch) addLog("Check OK.")
+        else if (logEnable) log.debug "Internet OK."
         setPresence(true)  // idempotent; keeps a fresh device in sync
     }
     scheduleNext()
@@ -228,7 +230,8 @@ private void addLog(String msg) {
     String stamp = new Date().format("yyyy-MM-dd HH:mm:ss", location.timeZone)
     List logList = (state.eventLog ?: []) as List
     logList.add(0, "${stamp} — ${msg}")
-    if (logList.size() > 200) logList = logList.subList(0, 200)
+    int maxEntries = restartSwitch ? 200 : 500  // monitor-only mode logs every check, keep more history
+    if (logList.size() > maxEntries) logList = logList.subList(0, maxEntries)
     state.eventLog = logList
     log.info "Internet Watchdog: ${msg}"
 }
