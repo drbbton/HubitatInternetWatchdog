@@ -63,6 +63,9 @@ def mainPage() {
                   required: false
             input "notifyDevices", "capability.notification",
                   title: "Push notification devices", multiple: true, required: false
+            input "logAllChecks", "bool",
+                  title: "Log every check result (OK and failed) to the event log — off = failures/outages/restarts only",
+                  defaultValue: true
             input "logEnable", "bool", title: "Enable debug logging", defaultValue: true
         }
         section("<b>Event log (newest first)</b>") {
@@ -83,7 +86,20 @@ def updated() {
     state.restartCount = state.restartCount ?: 0
     addLog("Watchdog (re)started. Interval ${checkMinutes} min, threshold ${failThreshold}, " +
            (restartSwitch ? "power cycle via ${restartSwitch.displayName}." : "no restart switch configured."))
+    // independent heartbeat: revives the check chain if it ever stalls (exception, reboot, code update)
+    runEvery10Minutes("ensureRunning")
     runIn(5, "runCheck")
+}
+
+def ensureRunning() {
+    long intervalMs = Math.max(((state.down ? downCheckMinutes : checkMinutes) ?: 5) as long, 1L) * 60000L
+    long sinceLast = now() - ((state.lastCheckMs ?: 0L) as long)
+    boolean inBootGrace = state.lastRestartMs &&
+        (now() - (state.lastRestartMs as long)) < (((bootMinutes ?: 5) as long) + 2) * 60000L
+    if (sinceLast > intervalMs * 3 && !inBootGrace) {
+        addLog("<b>Check chain stalled</b> (last check ran ${durationSince(state.lastCheckMs as Long)} ago) — restarting it.")
+        runIn(2, "runCheck")
+    }
 }
 
 def appButtonHandler(String btn) {
@@ -98,26 +114,42 @@ def appButtonHandler(String btn) {
 // ---------- check cycle ----------
 
 def runCheck() {
+    state.lastCheckMs = now()
     if (logEnable) log.debug "Testing ${primaryUrl}"
-    asynchttpGet("primaryResponse", [uri: primaryUrl, timeout: 10, textParser: true])
+    try {
+        asynchttpGet("primaryResponse", [uri: primaryUrl, timeout: 10, textParser: true])
+    } catch (e) {
+        log.error "runCheck failed to start: ${e.message}"
+        markFail("could not start check: ${e.message}")
+    }
 }
 
 def primaryResponse(resp, data) {
-    if (isGoodResponse(resp, primaryUrl)) {
-        markUp()
-    } else {
-        if (logEnable) log.debug "Primary failed (${respSummary(resp)}), testing ${secondaryUrl}"
-        asynchttpGet("secondaryResponse", [uri: secondaryUrl, timeout: 10, textParser: true],
-                     [primary: respSummary(resp)])
+    try {
+        if (isGoodResponse(resp, primaryUrl)) {
+            markUp()
+        } else {
+            if (logEnable) log.debug "Primary failed (${respSummary(resp)}), testing ${secondaryUrl}"
+            asynchttpGet("secondaryResponse", [uri: secondaryUrl, timeout: 10, textParser: true],
+                         [primary: respSummary(resp)])
+        }
+    } catch (e) {
+        log.error "primaryResponse error: ${e.message}"
+        scheduleNext()  // never let an exception kill the check chain
     }
 }
 
 def secondaryResponse(resp, data) {
-    if (isGoodResponse(resp, secondaryUrl)) {
-        addLog("Primary check failed (${data.primary}) but secondary OK — internet up, endpoint degraded.")
-        markUp()
-    } else {
-        markFail("primary: ${data.primary}; secondary: ${respSummary(resp)}")
+    try {
+        if (isGoodResponse(resp, secondaryUrl)) {
+            addLog("Primary check failed (${data.primary}) but secondary OK — internet up, endpoint degraded.")
+            markUp()
+        } else {
+            markFail("primary: ${data.primary}; secondary: ${respSummary(resp)}")
+        }
+    } catch (e) {
+        log.error "secondaryResponse error: ${e.message}"
+        scheduleNext()  // never let an exception kill the check chain
     }
 }
 
@@ -149,8 +181,7 @@ private void markUp() {
         notifyAll("Internet recovered after ${dur}.")
         setPresence(true)
     } else {
-        // monitor-only mode (no restart switch): log every check result for forensics
-        if (!restartSwitch) addLog("Check OK.")
+        if (logAllChecks != false) addLog("Check OK.")
         else if (logEnable) log.debug "Internet OK."
         setPresence(true)  // idempotent; keeps a fresh device in sync
     }
@@ -230,7 +261,7 @@ private void addLog(String msg) {
     String stamp = new Date().format("yyyy-MM-dd HH:mm:ss", location.timeZone)
     List logList = (state.eventLog ?: []) as List
     logList.add(0, "${stamp} — ${msg}")
-    int maxEntries = restartSwitch ? 200 : 500  // monitor-only mode logs every check, keep more history
+    int maxEntries = (logAllChecks != false) ? 500 : 200  // per-check logging needs more history
     if (logList.size() > maxEntries) logList = logList.subList(0, maxEntries)
     state.eventLog = logList
     log.info "Internet Watchdog: ${msg}"
